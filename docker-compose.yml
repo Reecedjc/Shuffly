@@ -1,0 +1,11 @@
+services:
+  shuffly:
+    build: .
+    container_name: shuffly
+    ports:
+      - "8097:8097"
+    volumes:
+      - ./sample-media:/media:ro
+      - ./sample-output:/output:rw
+      - ./config:/config:rw
+    restart: unless-stopped

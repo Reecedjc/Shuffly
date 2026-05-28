@@ -1,0 +1,293 @@
+from pathlib import Path
+import xml.etree.ElementTree as ET
+
+from PIL import Image
+import pytest
+
+from app.config import MARKER_FILE
+from app.generator import (
+    GenerationError,
+    delete_playlist_folder,
+    generate_playlist_show,
+    rename_playlist_folder,
+)
+from app.models import Episode
+
+
+def make_episode(source: Path, show="Show A", number=1):
+    source.parent.mkdir(parents=True, exist_ok=True)
+    source.write_text("media", encoding="utf-8")
+    return Episode(
+        id=f"{show}-{number}",
+        path=source,
+        show=show,
+        season=1,
+        episode=number,
+        title=f"Episode {number}",
+    )
+
+
+def test_generate_creates_symlink_and_marker(tmp_path):
+    source = (
+        tmp_path
+        / "media"
+        / "Show A"
+        / "Season 01"
+        / "Show A - S01E01.mkv"
+    )
+    episode = make_episode(source)
+
+    output = generate_playlist_show(
+        "My Playlist",
+        [episode],
+        tmp_path / "output",
+    )
+    generated = (
+        output
+        / "Season 01"
+        / "My Playlist - S01E001 - Show A - Episode 1.mkv"
+    )
+
+    assert (output / MARKER_FILE).is_file()
+    assert generated.is_symlink()
+    assert generated.resolve() == source.resolve()
+    assert (output / "tvshow.nfo").is_file()
+    assert generated.with_suffix(".nfo").is_file()
+    nfo = ET.parse(generated.with_suffix(".nfo")).getroot()
+    assert nfo.findtext("title") == "Show A - Episode 1 - S01E01"
+    assert nfo.findtext("plot") in (None, "")
+
+
+def test_generate_symlinks_episode_sidecar_image(tmp_path):
+    source = (
+        tmp_path
+        / "media"
+        / "Show A"
+        / "Season 01"
+        / "Show A - S01E02.mkv"
+    )
+    image = source.with_suffix(".jpg")
+    episode = make_episode(source, number=2)
+    image.write_text("image", encoding="utf-8")
+
+    output = generate_playlist_show(
+        "My Playlist",
+        [episode],
+        tmp_path / "output",
+    )
+    generated_image = (
+        output
+        / "Season 01"
+        / "My Playlist - S01E001 - Show A - Episode 2.jpg"
+    )
+
+    assert generated_image.is_symlink()
+    assert generated_image.resolve() == image.resolve()
+
+
+def test_generate_creates_playlist_poster_from_show_posters(tmp_path):
+    source = (
+        tmp_path
+        / "media"
+        / "Show A"
+        / "Season 01"
+        / "Show A - S01E01.mkv"
+    )
+    poster = tmp_path / "media" / "Show A" / "poster.jpg"
+    poster.parent.mkdir(parents=True, exist_ok=True)
+    Image.new("RGB", (20, 30), (255, 0, 0)).save(poster)
+    episode = make_episode(source)
+
+    output = generate_playlist_show(
+        "My Playlist",
+        [episode],
+        tmp_path / "output",
+        poster_paths=[poster],
+    )
+
+    assert (output / "folder.jpg").is_file()
+
+
+def test_generate_writes_original_episode_plot(tmp_path):
+    source = (
+        tmp_path
+        / "media"
+        / "Show A"
+        / "Season 01"
+        / "Show A - S01E01.mkv"
+    )
+    episode = make_episode(source)
+    episode = Episode(
+        **{
+            **episode.__dict__,
+            "plot": "The original episode overview.",
+        }
+    )
+
+    output = generate_playlist_show(
+        "My Playlist",
+        [episode],
+        tmp_path / "output",
+    )
+    generated = (
+        output
+        / "Season 01"
+        / "My Playlist - S01E001 - Show A - Episode 1.nfo"
+    )
+    nfo = ET.parse(generated).getroot()
+
+    assert nfo.findtext("plot") == "The original episode overview."
+
+
+def test_generate_keeps_original_episode_code_out_of_filename(tmp_path):
+    source = (
+        tmp_path
+        / "media"
+        / "Show A"
+        / "Specials"
+        / "Show A - S00E01.mkv"
+    )
+    episode = make_episode(source)
+    episode = Episode(
+        **{
+            **episode.__dict__,
+            "season": 0,
+            "episode": 1,
+            "title": "Special",
+        }
+    )
+
+    output = generate_playlist_show(
+        "My Playlist",
+        [episode],
+        tmp_path / "output",
+    )
+    generated = (
+        output
+        / "Season 01"
+        / "My Playlist - S01E001 - Show A - Special.mkv"
+    )
+    nfo = ET.parse(generated.with_suffix(".nfo")).getroot()
+
+    assert generated.is_symlink()
+    assert "S00E01" not in generated.name
+    assert nfo.findtext("title") == "Show A - Special - S00E01"
+
+
+def test_generate_writes_playlist_mode_and_show_names_to_tvshow_nfo(tmp_path):
+    source_a = tmp_path / "media" / "Show A" / "Season 01" / "A S01E01.mkv"
+    source_b = tmp_path / "media" / "Show B" / "Season 01" / "B S01E01.mkv"
+    episode_a = make_episode(source_a, show="Show A", number=1)
+    episode_b = make_episode(source_b, show="Show B", number=1)
+
+    output = generate_playlist_show(
+        "My Playlist",
+        [episode_a, episode_b],
+        tmp_path / "output",
+        mode_label="Manually Ordered",
+        show_names=["Show A", "Show B"],
+    )
+    nfo = ET.parse(output / "tvshow.nfo").getroot()
+
+    assert nfo.findtext("plot") == (
+        "Generated by Shuffly. (Manually Ordered). "
+        "Shows include Show A, Show B."
+    )
+
+
+def test_generation_refuses_to_replace_unmarked_folder(tmp_path):
+    source = (
+        tmp_path
+        / "media"
+        / "Show A"
+        / "Season 01"
+        / "Show A - S01E01.mkv"
+    )
+    episode = make_episode(source)
+    unsafe = tmp_path / "output" / "My Playlist"
+    unsafe.mkdir(parents=True)
+    (unsafe / "real-file.txt").write_text("do not delete", encoding="utf-8")
+
+    with pytest.raises(GenerationError):
+        generate_playlist_show("My Playlist", [episode], tmp_path / "output")
+
+    assert (unsafe / "real-file.txt").is_file()
+
+
+def test_generation_replaces_marked_folder(tmp_path):
+    source = (
+        tmp_path
+        / "media"
+        / "Show A"
+        / "Season 01"
+        / "Show A - S01E01.mkv"
+    )
+    episode = make_episode(source)
+    old = tmp_path / "output" / "My Playlist"
+    old.mkdir(parents=True)
+    (old / MARKER_FILE).write_text("owned", encoding="utf-8")
+    (old / "stale.txt").write_text("stale", encoding="utf-8")
+
+    output = generate_playlist_show(
+        "My Playlist",
+        [episode],
+        tmp_path / "output",
+    )
+
+    assert not (output / "stale.txt").exists()
+    assert (output / MARKER_FILE).is_file()
+
+
+def test_delete_playlist_folder_refuses_unmarked_folder(tmp_path):
+    unsafe = tmp_path / "output" / "My Playlist"
+    unsafe.mkdir(parents=True)
+    (unsafe / "real-file.txt").write_text("do not delete", encoding="utf-8")
+
+    with pytest.raises(GenerationError):
+        delete_playlist_folder("My Playlist", tmp_path / "output")
+
+    assert unsafe.exists()
+    assert (unsafe / "real-file.txt").is_file()
+
+
+def test_delete_playlist_folder_removes_marked_folder(tmp_path):
+    folder = tmp_path / "output" / "My Playlist"
+    folder.mkdir(parents=True)
+    (folder / MARKER_FILE).write_text("owned", encoding="utf-8")
+
+    assert delete_playlist_folder("My Playlist", tmp_path / "output")
+    assert not folder.exists()
+
+
+def test_rename_playlist_folder_refuses_existing_destination(tmp_path):
+    old = tmp_path / "output" / "Old Playlist"
+    new = tmp_path / "output" / "New Playlist"
+    old.mkdir(parents=True)
+    new.mkdir(parents=True)
+    (old / MARKER_FILE).write_text("owned", encoding="utf-8")
+    (new / MARKER_FILE).write_text("owned", encoding="utf-8")
+
+    with pytest.raises(GenerationError):
+        rename_playlist_folder(
+            "Old Playlist",
+            "New Playlist",
+            tmp_path / "output",
+        )
+
+    assert old.exists()
+    assert new.exists()
+
+
+def test_rename_playlist_folder_moves_marked_folder(tmp_path):
+    old = tmp_path / "output" / "Old Playlist"
+    new = tmp_path / "output" / "New Playlist"
+    old.mkdir(parents=True)
+    (old / MARKER_FILE).write_text("owned", encoding="utf-8")
+
+    assert rename_playlist_folder(
+        "Old Playlist",
+        "New Playlist",
+        tmp_path / "output",
+    )
+    assert not old.exists()
+    assert (new / MARKER_FILE).is_file()

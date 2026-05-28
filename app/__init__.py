@@ -1,0 +1,1 @@
+"""Shuffly application package."""

@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Shuffly</title>
+    <link rel="icon" type="image/png" href="/static/favicon.png">
+    <link rel="stylesheet" href="/static/styles.css?v=23">
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar-brand">
+        <img src="/static/Shuffly.png" alt="Shuffly" class="topbar-logo">
+        <h1>Shuffly</h1>
+      </div>
+      <nav class="tab-bar" role="tablist">
+        <button class="tab active" data-tab="create" role="tab">Create</button>
+        <button class="tab" data-tab="manage" role="tab">Playlists</button>
+        <button class="tab" data-tab="settings" role="tab">Settings</button>
+        <button class="tab" data-tab="activity" role="tab">Activity</button>
+      </nav>
+      <div class="topbar-actions">
+        <button id="scanButton" type="button" class="btn-secondary">Scan</button>
+        <button id="exportButton" type="button" class="btn-secondary">Export</button>
+        <label class="file-button btn-secondary">
+          Import
+          <input id="importInput" type="file" accept="application/json">
+        </label>
+      </div>
+    </header>
+
+    <div class="progress-bar" id="progressBar">
+      <div class="progress-bar-fill"></div>
+    </div>
+
+    <!-- ── Create tab ─────────────────────────────────────────────── -->
+    <main class="layout" id="createPage">
+      <section class="media-panel">
+        <div class="panel-head">
+          <h2>Media</h2>
+          <span id="showCount" class="muted"></span>
+        </div>
+        <div id="showGrid" class="card-grid"></div>
+      </section>
+
+      <aside class="editor-panel">
+        <div class="panel-head">
+          <h2>Playlist</h2>
+          <select id="playlistSelect"></select>
+        </div>
+
+        <form id="playlistForm">
+          <label class="field-label">
+            Title
+            <input id="title" required placeholder="Action Shows Shuffle">
+          </label>
+
+          <label class="field-label">
+            Mode
+            <select id="mode">
+              <option value="show_shuffle">Shuffle in Order</option>
+              <option value="selected_order">Manually Order</option>
+              <option value="mixed_timeline">Sort by Release Date</option>
+            </select>
+          </label>
+
+          <label class="field-label">
+            Shuffle seed
+            <input id="seed" type="number" placeholder="Optional">
+          </label>
+
+          <label class="field-label">
+            Output folder
+            <select id="outputFolder"></select>
+          </label>
+
+          <div class="form-actions">
+            <button id="clearButton" type="button" class="btn-ghost">Clear</button>
+            <button id="generateButton" type="button" class="btn-primary">Generate</button>
+          </div>
+
+          <div id="generateStatus" class="generate-status hidden"></div>
+        </form>
+
+        <div class="panel-head compact">
+          <h2>Selected Episodes</h2>
+          <span id="selectedCount" class="badge">0</span>
+        </div>
+        <div id="selectedEpisodes" class="selected-list"></div>
+      </aside>
+    </main>
+
+    <!-- ── Playlists tab ──────────────────────────────────────────── -->
+    <section class="full-page hidden" id="managePage">
+      <div id="playlistCards" class="playlist-cards"></div>
+    </section>
+
+    <!-- ── Settings tab ───────────────────────────────────────────── -->
+    <section class="full-page hidden" id="settingsPage">
+      <div class="settings-grid">
+        <section class="settings-card">
+          <div class="settings-card-head">
+            <div class="settings-card-heading">
+              <h2>Media Folders</h2>
+              <p class="settings-card-desc">Folders Shuffly scans for TV shows and episodes</p>
+            </div>
+            <button id="addMediaFolder" type="button" class="btn-ghost settings-add-btn">+ Add folder</button>
+          </div>
+          <div id="mediaFolderList" class="folder-list"></div>
+        </section>
+
+        <section class="settings-card">
+          <div class="settings-card-head">
+            <div class="settings-card-heading">
+              <h2>Output Folders</h2>
+              <p class="settings-card-desc">Where generated playlist folders are written</p>
+            </div>
+            <button id="addOutputFolder" type="button" class="btn-ghost settings-add-btn">+ Add folder</button>
+          </div>
+          <div id="outputFolderList" class="folder-list"></div>
+        </section>
+
+        <section class="settings-card">
+          <div class="settings-card-head">
+            <div class="settings-card-heading">
+              <h2>Config Location</h2>
+              <p class="settings-card-desc">Where Shuffly stores its database and settings</p>
+            </div>
+          </div>
+          <div id="configFolder" class="readonly-path">/config</div>
+        </section>
+      </div>
+    </section>
+
+    <!-- ── Activity tab ───────────────────────────────────────────── -->
+    <section class="full-page hidden" id="activityPage">
+      <div class="activity-inner">
+        <h2>Activity Log</h2>
+        <pre id="log"></pre>
+      </div>
+    </section>
+
+    <!-- ── Modal ─────────────────────────────────────────────────── -->
+    <div class="modal-backdrop hidden" id="modalBackdrop">
+      <div class="modal" id="modal" role="dialog" aria-modal="true">
+        <header class="modal-header">
+          <h2 id="modalTitle"></h2>
+          <button id="modalClose" class="icon-button" aria-label="Close">✕</button>
+        </header>
+        <div id="modalBody"></div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop hidden" id="browserBackdrop">
+      <div class="modal browser-modal" role="dialog" aria-modal="true">
+        <header class="modal-header">
+          <h2 id="browserTitle">Choose folder</h2>
+          <button id="browserClose" class="icon-button" aria-label="Close">✕</button>
+        </header>
+        <div class="browser-body">
+          <div id="browserPath" class="browser-path">/</div>
+          <div id="browserError" class="browser-error hidden"></div>
+          <div id="browserList" class="browser-list"></div>
+          <div class="browser-actions">
+            <button id="browserUse" type="button" class="btn-primary">Use this folder</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="/static/app.js?v=23"></script>
+  </body>
+</html>
