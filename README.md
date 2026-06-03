@@ -12,6 +12,7 @@ show.
 
 ## Playlist modes
 
+- **Shuffle** randomizes the selected episodes.
 - **Shuffled in order** shuffles between selected shows while preserving episode
   order within each show.
 - **Manual Order** uses the episode order shown in the selected episode list.

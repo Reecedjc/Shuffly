@@ -229,7 +229,12 @@ def _normalize_import_playlist(item: Any) -> dict[str, Any]:
         raise PlaylistImportError("Each imported playlist needs a title.")
 
     mode = item.get("mode")
-    if mode not in {"show_shuffle", "selected_order", "mixed_timeline"}:
+    if mode not in {
+        "shuffle",
+        "show_shuffle",
+        "selected_order",
+        "mixed_timeline",
+    }:
         raise PlaylistImportError(f"Unknown playlist mode: {mode}")
 
     selected_show_paths = _string_list(
@@ -265,7 +270,9 @@ def _string_list(value: Any, field: str) -> list[str]:
     if not isinstance(value, list) or not all(
         isinstance(item, str) for item in value
     ):
-        raise PlaylistImportError(f"Playlist {field} must be a list of strings.")
+        raise PlaylistImportError(
+            f"Playlist {field} must be a list of strings."
+        )
     return value
 
 

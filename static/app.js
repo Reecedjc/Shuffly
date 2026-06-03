@@ -975,6 +975,7 @@ el.importInput.addEventListener("change", async () => {
 // ── Tab switching ─────────────────────────────────────────────────
 
 const MODE_LABELS = {
+  shuffle: "Shuffle",
   show_shuffle: "Shuffle in Order",
   selected_order: "Manually Order",
   mixed_timeline: "Sort by Release Date",

@@ -7,6 +7,16 @@ from collections.abc import Iterable
 from app.models import Episode
 
 
+def random_shuffle(
+    episodes: Iterable[Episode],
+    max_items: int,
+    seed: int | None = None,
+) -> list[Episode]:
+    output = list(episodes)
+    random.Random(seed).shuffle(output)
+    return output[:max_items]
+
+
 def show_shuffle_episode_order(
     episodes: Iterable[Episode],
     max_items: int,

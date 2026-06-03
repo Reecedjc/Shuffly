@@ -952,6 +952,7 @@ details.season[open] .season-chevron { transform: rotate(180deg); }
 .pl-card:hover { box-shadow: 0 4px 18px rgba(0,0,0,0.35); }
 
 /* Left-accent colour per mode */
+.pl-card[data-mode="shuffle"]        { border-left-color: #f59e0b; }
 .pl-card[data-mode="show_shuffle"]   { border-left-color: var(--accent); }
 .pl-card[data-mode="selected_order"] { border-left-color: #a78bfa; }
 .pl-card[data-mode="mixed_timeline"] { border-left-color: #34d399; }
@@ -985,10 +986,12 @@ details.season[open] .season-chevron { transform: rotate(180deg); }
 }
 
 /* Tint placeholder background by mode */
+.pl-card[data-mode="shuffle"]        .pl-card-thumb { background: rgba(245, 158,  11, 0.10); }
 .pl-card[data-mode="show_shuffle"]   .pl-card-thumb { background: rgba(79,  156, 249, 0.10); }
 .pl-card[data-mode="selected_order"] .pl-card-thumb { background: rgba(167, 139, 250, 0.10); }
 .pl-card[data-mode="mixed_timeline"] .pl-card-thumb { background: rgba(52,  211, 153, 0.10); }
 
+.pl-card[data-mode="shuffle"]        .pl-card-thumb-placeholder { color: rgba(245, 158,  11, 0.5); }
 .pl-card[data-mode="show_shuffle"]   .pl-card-thumb-placeholder { color: rgba(79,  156, 249, 0.5); }
 .pl-card[data-mode="selected_order"] .pl-card-thumb-placeholder { color: rgba(167, 139, 250, 0.5); }
 .pl-card[data-mode="mixed_timeline"] .pl-card-thumb-placeholder { color: rgba(52,  211, 153, 0.5); }
@@ -1058,6 +1061,12 @@ details.season[open] .season-chevron { transform: rotate(180deg); }
   color: var(--muted);
   background: var(--surface2);
   border-color: var(--border);
+}
+
+.pl-card[data-mode="shuffle"] .mode-badge {
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.10);
+  border-color: rgba(245, 158, 11, 0.25);
 }
 
 .pl-card[data-mode="show_shuffle"] .mode-badge {

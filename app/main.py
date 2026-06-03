@@ -20,6 +20,7 @@ from app.config import APP_NAME, CONFIG_DIR
 from app.models import Episode
 from app.ordering import (
     mixed_timeline,
+    random_shuffle,
     selected_order,
     show_shuffle_episode_order,
 )
@@ -84,6 +85,7 @@ SYSTEM_BROWSER_PATHS = {
 }
 
 MODE_LABELS = {
+    "shuffle": "Shuffle",
     "show_shuffle": "Shuffled in Order",
     "selected_order": "Manually Ordered",
     "mixed_timeline": "Sorted by Release Date",
@@ -228,7 +230,12 @@ def playlists() -> dict[str, Any]:
 
 @app.post("/api/playlists")
 def save_playlist(payload: PlaylistPayload) -> dict[str, Any]:
-    valid_modes = {"show_shuffle", "selected_order", "mixed_timeline"}
+    valid_modes = {
+        "shuffle",
+        "show_shuffle",
+        "selected_order",
+        "mixed_timeline",
+    }
     if payload.mode not in valid_modes:
         raise HTTPException(status_code=400, detail="Unknown playlist mode.")
     output_folder = _resolve_output_folder(payload.output_folder)
@@ -392,6 +399,12 @@ def _order_episodes(
 ) -> list[Episode]:
     max_items = int(playlist["max_items"])
     mode = playlist["mode"]
+    if mode == "shuffle":
+        return random_shuffle(
+            episodes,
+            max_items,
+            playlist.get("seed"),
+        )
     if mode == "show_shuffle":
         return show_shuffle_episode_order(
             episodes,
